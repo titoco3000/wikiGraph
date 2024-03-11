@@ -43,9 +43,11 @@ void seek(Grafo *g, std::string subAddr)
                 inicio = n + 15;
                 int fim = bloco.find("\"", inicio);
                 std::string chave = bloco.substr(inicio, fim - inicio);
-
+                
+                
                 // se for um arquivo, tem '.' e não deve ser buscado
-                if (chave.find('.') == -1)
+                // se for link para pronucia, texto do link começa com '[' e não deve ser buscado
+                if (chave.find('.') == -1 && bloco.substr(bloco.find(">",fim)+1,2).find('[') == -1)
                 {
                     seek(g, chave);
                 }
