@@ -1,2 +1,4 @@
 export/
 build/
+.vscode/
+log.txt

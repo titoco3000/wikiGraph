@@ -125,6 +125,16 @@ std::string unEscapeHTML(std::string original)
 
     return original;
 }
+/*
+Usa a tabela para fazer as substituições de caracteres especias, para a string compatível
+*/
+std::string escapeHTML(std::string original)
+{
+    for (int i = 0; i < tamanhoTabelaSubs; i++)
+        original = std::regex_replace(original, std::regex(tabelaSubs[i][1]), tabelaSubs[i][0]);
+
+    return original;
+}
 
 /*
 Substitui os caracteres especiais e underscore
