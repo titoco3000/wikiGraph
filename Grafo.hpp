@@ -67,6 +67,35 @@ public:
     }
 };
 
+void preencherFechoTransitivoDireto(std::vector<Aresta *> &arestas, int *atingiveis, int v)
+{
+    atingiveis[v] = 1;
+    Aresta *prox = arestas[v];
+    while (prox != nullptr)
+    {
+        if (!atingiveis[prox->id])
+            preencherFechoTransitivoDireto(arestas, atingiveis, prox->id);
+        prox = prox->prox;
+    }
+}
+void preencherFechoTransitivoInverso(std::vector<Aresta *> &arestas, int *atingem, int v)
+{
+    atingem[v] = 1;
+    for (int i = 0; i < arestas.size(); i++)
+    {
+        if (!atingem[i])
+        {
+            Aresta *prox = arestas[i];
+            while (prox != nullptr)
+            {
+                if (prox->id == v)
+                    preencherFechoTransitivoInverso(arestas, atingem, i);
+                prox = prox->prox;
+            }
+        }
+    }
+}
+
 /*
 Grafo implementado com lista de adjecencia. Cada node possui um nome e cada aresta uma intensidade.
 */
@@ -244,7 +273,8 @@ public:
 
     bool RemoverAresta(int origem, int destino)
     {
-        if (origem >= 0 || origem < ContarNodes()){
+        if (origem >= 0 || origem < ContarNodes())
+        {
             Aresta **base = &arestas[origem];
             while (*base != nullptr)
             {
@@ -260,7 +290,6 @@ public:
                     base = &((*base)->prox);
                 }
             }
-
         }
 
         return false;
@@ -357,6 +386,157 @@ public:
         for (int i = 0; i < ContarNodes(); i++)
             if (this->arestas[i])
                 delete this->arestas[i];
+    }
+
+    int CategoriaConexidade()
+    {
+        int *atingidos = (int *)calloc(sizeof(int), ContarNodes());
+        int *atingem = (int *)calloc(sizeof(int), ContarNodes());
+
+        int categoria = 3;
+
+        // verifica por desconexo
+        for (int i = 0; i < ContarNodes(); i++)
+        {
+            Aresta *prox = arestas[i];
+            while (prox != nullptr && categoria > 0)
+            {
+                atingem[prox->id] = 1;
+                prox = prox->prox;
+            }
+        }
+        for (int i = 0; i < ContarNodes(); i++)
+            if (atingem[i] == 0)
+                categoria = 0;
+
+        if (categoria > 0)
+            for (int v = 0; v < ContarNodes(); v++)
+            {
+                // limpa
+                for (int i = 0; i < ContarNodes(); i++)
+                {
+                    atingidos[i] = 0;
+                    atingem[i] = 0;
+                }
+
+                // preenche
+                preencherFechoTransitivoDireto(this->arestas, atingidos, v);
+                preencherFechoTransitivoInverso(this->arestas, atingem, v);
+
+                if (categoria == 3)
+                {
+                    for (int i = 0; i < ContarNodes(); i++)
+                        if (!atingidos[i])
+                        {
+                            categoria--;
+                            break;
+                        }
+                }
+                if (categoria == 2)
+                {
+                    for (int i = 0; i < ContarNodes(); i++)
+                        if (!atingidos[i] && !atingem[i])
+                        {
+                            categoria--;
+                            break;
+                        }
+                }
+            }
+
+        free(atingidos);
+        free(atingem);
+        return categoria;
+    }
+
+    Grafo *Reduzido()
+    {
+        int *atingidos = (int *)malloc(sizeof(int) * ContarNodes());
+        int *atingem = (int *)malloc(sizeof(int) * ContarNodes());
+
+        // cada pos de grupos em q grupo está o vertice no index
+        int *grupo = (int *)malloc(sizeof(int) * ContarNodes());
+        int qtd_grupos = 0;
+
+        for (int i = 0; i < ContarNodes(); i++)
+            grupo[i] = -1;
+
+        for (int v = 0; v < ContarNodes(); v++)
+        {
+            // se ainda nao foi movido para um grupo
+            if (grupo[v] == -1)
+            {
+                grupo[v] = qtd_grupos;
+
+                // limpa
+                for (int i = 0; i < ContarNodes(); i++)
+                {
+                    atingidos[i] = 0;
+                    atingem[i] = 0;
+                }
+
+                // preenche
+                preencherFechoTransitivoDireto(arestas, atingidos, v);
+                preencherFechoTransitivoInverso(arestas, atingem, v);
+
+                // // imprime
+                // std::cout<< std::endl;
+                // for (int i = 0; i < ContarNodes(); i++)
+                //     std::cout << atingidos[i] << ' ';
+                // std::cout << "    ";
+                // for (int i = 0; i < ContarNodes(); i++)
+                //     std::cout << atingem[i] << ' ';
+                // std::cout << "    ";
+                // for (int i = 0; i < ContarNodes(); i++)
+                //     std::cout << grupo[i] << ' ';
+                // std::cout<< std::endl;
+
+                for (int i = 0; i < ContarNodes(); i++)
+                {
+                    if (grupo[i] == -1 && atingidos[i] && atingem[i])
+                    {
+                        grupo[i] = qtd_grupos;
+                    }
+                }
+                qtd_grupos++;
+            }
+        }
+
+        Grafo *c = new Grafo(qtd_grupos);
+        for (int i = 0; i < qtd_grupos; i++)
+        {
+            std::stringstream s;
+            bool prim = true;
+            for (int j = 0; j < ContarNodes(); j++)
+            {
+                if (grupo[j] == i)
+                {
+                    if (prim)
+                        prim = false;
+                    else
+                        s << '+';
+                    s << j;
+                }
+            }
+            c->InserirNode(s.str());
+        }
+
+        // associa as arestas
+        for (int i = 0; i < ContarNodes(); i++)
+        {
+            Aresta *prox = arestas[i];
+            while (prox)
+            {
+                if (grupo[i] != grupo[prox->id])
+                    c->InserirAresta(grupo[i], grupo[prox->id], 1); // Não deveria ser 1! Foi 1 por folga. Deveria somar todos
+                prox = prox->prox;
+            }
+        }
+
+        free(atingem);
+        free(atingidos);
+        free(grupo);
+
+        return c;
     }
 
     /*Declara friends*/

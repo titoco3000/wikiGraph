@@ -201,7 +201,10 @@ void menu()
             std::cout << g << std::endl;
         }
         else if (inputUsuario == "i"){
-
+            std::cout<< "Categoria de conexidade:"<<g->CategoriaConexidade()<<"\n\nReduzido:\n";
+            Grafo *c = g->Reduzido();
+            std::cout<<c<<std::endl;
+            delete c;
         }
         else if (inputUsuario == "j")
         {
@@ -221,6 +224,10 @@ void menu()
             g = new Grafo(qtd);
             seek(g, root);
             std::cout << "Mapeado.\n";
+        }
+        else if (inputUsuario == "l"){
+            g->ExportarParaGraphML();
+            std::cout<<"Grafo exportado para ser usado em https://graphonline.ru/en/\n";
         }
         else
         {
