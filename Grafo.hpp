@@ -58,6 +58,25 @@ public:
         return true;
     }
     /*
+    Retorna verdadeiro se tiver adicionado, falso se só tiver somado
+    */
+    bool AdicionarOuSomar(int id, int intensidade)
+    {
+        if (this->id == id)
+        {
+            this->intensidade += intensidade;
+        }
+        else{
+            if (this->prox)
+                return prox->AdicionarOuSomar(id, intensidade);
+            this->prox = new Aresta(id, intensidade);
+        } 
+        return true;
+    }
+    int Contar(){
+        return this->prox?this->prox->Contar()+1:1;
+    }
+    /*
     Só precisa liberar o primeiro item da lista, porque cada um libera o proximo
     */
     ~Aresta()
@@ -103,18 +122,15 @@ class Grafo
 {
 private:
     std::vector<std::string> nomes;
+    std::vector<int> profundidades;
     std::vector<Aresta *> arestas;
-
-    /*quantidade de arestas*/
-    int m;
-
 public:
     /*Cria um grafo com espaço reservado*/
     Grafo(int capacidade)
     {
         this->nomes.reserve(capacidade);
+        this->profundidades.reserve(capacidade);
         this->arestas.reserve(capacidade);
-        this->m = 0;
     }
 
     /*Cria um grafo a partir de txt*/
@@ -124,7 +140,7 @@ public:
         std::ifstream inFile(fullpath);
 
         int temp;
-        std::string nodeName;
+        std::string linha;
         if (!inFile.is_open())
             throw std::ifstream::failure("Arquivo não pode ser aberto");
 
@@ -138,15 +154,19 @@ public:
 
         this->nomes.reserve(capacidade);
         this->arestas.reserve(capacidade);
-        this->m = 0;
 
         // limpa buffer para permitir getline
         inFile.ignore();
         for (int i = 0; i < capacidade; i++)
         {
-            getline(inFile, nodeName);
-            nodeName = nodeName.substr(2);
-            this->InserirNode(nodeName);
+            getline(inFile, linha);
+            int posUltimoEspaco = linha.rfind(" ");
+            int posPrimeiroEspaco = linha.find(" ");
+            std::string nodeName = linha.substr(posPrimeiroEspaco + 1, posUltimoEspaco - posPrimeiroEspaco - 1);
+            std::string profundidadeStr = linha.substr(posUltimoEspaco + 1);
+            std::cout << nodeName << " ==> " << profundidadeStr << std::endl;
+
+            this->InserirNode(nodeName, std::stoi(profundidadeStr));
         }
         int m, origem, destino, peso;
         inFile >> m;
@@ -166,7 +186,12 @@ public:
     }
     int ContarArestas()
     {
-        return this->m;
+        int sum = 0;
+        for (int i = 0; i < arestas.size(); i++)
+            if(arestas[i])
+                sum += arestas[i]->Contar();
+        
+        return sum;
     }
     int ObterCapacidade()
     {
@@ -192,7 +217,7 @@ public:
     Insere o node, se o nome ainda nao tiver sido usado.
     Se nao tiver espaço, aumenta a capacidade antes de inserir
     */
-    bool InserirNode(std::string nome)
+    bool InserirNode(std::string nome, int profundidade = 0)
     {
         for (int i = 0; i < this->ContarNodes(); i++)
         {
@@ -201,6 +226,7 @@ public:
         }
 
         this->nomes.push_back(nome);
+        this->profundidades.push_back(profundidade);
         this->arestas.push_back(nullptr);
         return true;
     }
@@ -224,7 +250,6 @@ public:
             }
             else
                 this->arestas[a] = nova;
-            this->m++;
             return true;
         }
         return false;
@@ -240,6 +265,19 @@ public:
         if (na < 0 || nb < 0)
             return false;
         return InserirAresta(na, nb, intensidade);
+    }
+
+    bool InserirOuSomarAresta(int a, int b, int intensidade)
+    {
+        if (a >= 0 && a < this->ContarNodes() && b >= 0 && b < this->ContarNodes())
+        {
+            if (this->arestas[a])
+                this->arestas[a]->AdicionarOuSomar(b, intensidade);
+            else
+                this->arestas[a] = new Aresta(b, intensidade);
+            return true;
+        }
+        return false;
     }
 
     bool RemoverVertice(int id)
@@ -302,7 +340,6 @@ public:
     {
         // configuracoes de aparencia
         int nodeSize = 40;
-        float radius = 20.0 * this->ContarNodes();
         float centro[2] = {400, 200};
 
         // abre o arquivo
@@ -311,10 +348,21 @@ public:
         // insere o header
         file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <graphml> <graph id=\"Graph\" uidGraph=\"6\" uidEdge=\"10008\">";
 
+        std::vector<int> qtdPorNivel(this->ContarNodes());
+        std::vector<int> qtdFeitaPorNivel(this->ContarNodes());
+        for (int i = 0; i < this->ContarNodes(); i++)
+        {
+            qtdPorNivel[this->profundidades[i]]++;
+        }
+
         // insere cada node
         for (int i = 0; i < this->ContarNodes(); i++)
         {
-            double angulo = i * 2.0 * PI / this->ContarNodes();
+            double angulo = qtdFeitaPorNivel[this->profundidades[i]] * 2.0 * PI / qtdPorNivel[this->profundidades[i]];
+            float radius = 200.0 * this->profundidades[i];
+
+            qtdFeitaPorNivel[this->profundidades[i]]++;
+
             file << "<node positionX=\"" << centro[0] + cos(angulo) * radius << "\" positionY=\"" << centro[1] + sin(angulo) * radius << "\" id=\"" << i << "\" mainText=\"" << wikipediaEscape(this->nomes[i]) << "\" upText=\"\" size=\"" << nodeSize << "\"></node>";
         }
         // insere cada aresta
@@ -324,7 +372,7 @@ public:
             while (proximo)
             {
                 file
-                    << "<edge source=\"" << i << "\" target=\"" << proximo->id << "\" isDirect=\"true\" weight=\"" << proximo->intensidade << "\" useWeight=\"true\" id=\"" << 10000 + i << "\" text=\"\" upText=\"\" arrayStyleStart=\"\" arrayStyleFinish=\"\" model_width=\"4\" model_type=\"1\" model_curveValue=\"-0.2\" model_default=\"NaN\"></edge>";
+                    << "<edge source=\"" << i << "\" target=\"" << proximo->id << "\" isDirect=\"true\" weight=\"" << proximo->intensidade << "\" useWeight=\"true\" id=\"" << 10000 + i << "\" text=\"\" upText=\"\" arrayStyleStart=\"\" arrayStyleFinish=\"\" model_width=\"4\" model_type=\"1\" model_curveValue=\"-0.2\" model_default=\"true\"></edge>";
 
                 proximo = proximo->prox;
             }
@@ -356,7 +404,7 @@ public:
         // insere cada node
         for (int i = 0; i < this->ContarNodes(); i++)
             file << '\n'
-                 << i << ' ' << wikipediaEscape(this->nomes[i]);
+                 << i << ' ' << wikipediaEscape(this->nomes[i]) << ' ' << this->profundidades[i];
 
         // insere o numero de arestas
         file << '\n'
@@ -548,7 +596,7 @@ Operator overload para permitir impressao
 */
 std::ostream &operator<<(std::ostream &out, Grafo *const &data)
 {
-    out << "m: " << data->m << "  n: " << data->ContarNodes() << "\n";
+    out << "m: " << data->ContarArestas() << "  n: " << data->ContarNodes() << "\n";
     for (int i = 0; i < data->ContarNodes(); i++)
     {
         out << i << '(' << data->nomes[i] << ") ";

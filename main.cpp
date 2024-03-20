@@ -1,5 +1,7 @@
 #include <iostream>
 #include <string>
+#include <vector>
+#include <queue>
 
 #include "Grafo.hpp"
 #include "html.hpp"
@@ -92,6 +94,90 @@ void seek(Grafo *g, std::string subAddr)
     }
 }
 
+Grafo *seekLimitadoPorNivel(int tamanho, std::string subAddr)
+{
+    int nodesPorNivel = 5;
+
+    std::vector<std::string> titulos;
+    std::vector<std::vector<std::string>> links(tamanho);
+    std::vector<int> niveis;
+    titulos.reserve(tamanho);
+    links.reserve(tamanho);
+
+    titulos.push_back(subAddr);
+    niveis.push_back(0);
+    for (int i = 0; i < titulos.size(); i++)
+    {
+        std::cout << '('<<i+1<<'/'<<tamanho<<')'<<" adicionando: " << wikipediaEscape(titulos[i]) << std::endl;
+        std::string url = masterUrl + titulos[i];
+        std::string readBuffer = obterSite(url);
+
+        // se conseguiu ler
+        if (readBuffer != "")
+        {
+            // inicio delimitado pelas classes "mw-content-ltr mw-parser-output"
+            int inicio = readBuffer.find("<p>", readBuffer.find("mw-content-ltr mw-parser-output"));
+            // fim delimitado pelo id "catlinks"
+            int fim = readBuffer.find("catlinks", inicio);
+
+            if (fim == -1 || inicio == -1)
+            {
+                std::cout << "Conteudo indisponivel!" << std::endl;
+            }
+            else
+            {
+                // bloco é a parte que nos interessa, é o artigo em si
+                std::string bloco = readBuffer.substr(inicio, fim - inicio);
+
+                // busca todos os links
+                inicio = 0;
+                fim = 0;
+                while (true)
+                {
+                    inicio = bloco.find("<a href=\"/wiki", inicio);
+                    if (inicio == std::string::npos)
+                        break;
+                    else
+                    {
+                        inicio += 15;
+                        fim = bloco.find("\"", inicio);
+                        std::string addr = bloco.substr(inicio, fim - inicio);
+                        if(addr.find(':')==std::string::npos)
+                            links[i].push_back(addr);
+                    }
+                }
+
+                int index = 0;
+                int adicionadas = 0;
+                while (adicionadas < nodesPorNivel && index < links[i].size() && titulos.size() < tamanho)
+                {
+                    // verifica se já foi adicionado no vetor
+                    if (std::find(titulos.begin(), titulos.end(), links[i][index]) == titulos.end())
+                    {
+                        titulos.push_back(links[i][index]);
+                        niveis.push_back(niveis[i] + 1);
+                        adicionadas++;
+                    }
+                    index++;
+                }
+            }
+        }
+    }
+
+    Grafo *g = new Grafo(tamanho);
+    for (int i = 0; i < titulos.size(); i++)
+        g->InserirNode(titulos[i], niveis[i]);
+    for (int i = 0; i < titulos.size(); i++){
+        for (int j = 0; j < links[i].size(); j++)
+        {
+            int index = g->ObterIndexNode(links[i][j]);
+            if(index != -1)
+                g->InserirOuSomarAresta(i,index, 1);
+        }
+    }
+    return g;
+}
+
 void menu()
 {
     std::cout << "\n    WIKIGRAPH\n";
@@ -171,13 +257,14 @@ void menu()
             g->RemoverVertice(id);
             std::cout << "\nRemovido.\n";
         }
-        else if (inputUsuario == "f"){
+        else if (inputUsuario == "f")
+        {
             int origemIndex, destinoIndex;
             std::cout << "Índice vértice de origem: ";
             std::cin >> origemIndex;
             std::cout << "Índice vértice de destino: ";
             std::cin >> destinoIndex;
-            std::cout << (g->RemoverAresta(origemIndex, destinoIndex)?"Aresta removida":"Aresta não pôde ser removida")<<'\n';
+            std::cout << (g->RemoverAresta(origemIndex, destinoIndex) ? "Aresta removida" : "Aresta não pôde ser removida") << '\n';
         }
         else if (inputUsuario == "g")
         {
@@ -200,10 +287,11 @@ void menu()
         {
             std::cout << g << std::endl;
         }
-        else if (inputUsuario == "i"){
-            std::cout<< "Categoria de conexidade:"<<g->CategoriaConexidade()<<"\n\nReduzido:\n";
+        else if (inputUsuario == "i")
+        {
+            std::cout << "Categoria de conexidade:" << g->CategoriaConexidade() << "\n\nReduzido:\n";
             Grafo *c = g->Reduzido();
-            std::cout<<c<<std::endl;
+            std::cout << c << std::endl;
             delete c;
         }
         else if (inputUsuario == "j")
@@ -221,13 +309,15 @@ void menu()
             std::cout << "Quantas páginas devem ser mapeadas: ";
             std::cin >> qtd;
             delete g;
-            g = new Grafo(qtd);
-            seek(g, root);
+            // g = new Grafo(qtd);
+            // seek(g, root);
+            g = seekLimitadoPorNivel(qtd, root);
             std::cout << "Mapeado.\n";
         }
-        else if (inputUsuario == "l"){
+        else if (inputUsuario == "l")
+        {
             g->ExportarParaGraphML();
-            std::cout<<"Grafo exportado para ser usado em https://graphonline.ru/en/\n";
+            std::cout << "Grafo exportado para ser usado em https://graphonline.ru/en/\n";
         }
         else
         {
@@ -238,6 +328,7 @@ void menu()
 
 int main(int argc, char *argv[])
 {
+    // seekLimitadoPorNivel(10, "Filosofia");
     menu();
 
     // std::string root = "Filosofia";
