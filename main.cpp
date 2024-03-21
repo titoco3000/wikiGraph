@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <queue>
+#include <algorithm>
 
 #include "Grafo.hpp"
 #include "html.hpp"
@@ -94,12 +95,66 @@ void seek(Grafo *g, std::string subAddr)
     }
 }
 
+struct WikiLink
+{
+    std::string titulo;
+    int qtd;
+
+    static bool comparar(const WikiLink &a, const WikiLink &b)
+    {
+        return a.qtd > b.qtd;
+    }
+
+    bool existeTituloNoVetor(const std::vector<WikiLink> &vec)
+    {
+        for (auto it = vec.begin(); it != vec.end(); it++)
+        {
+            if (it->titulo == this->titulo)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static bool tituloIgual(const WikiLink &a, const WikiLink &b)
+    {
+        return a.titulo == b.titulo;
+    }
+};
+/*
+Modificado de:
+https://stackoverflow.com/questions/22489073/counting-the-number-of-occurrences-of-a-string-within-a-string
+*/
+int contarReferencias(std::string str, std::string substr)
+{
+    int count = 0;
+    for (int i = 0; i < str.size() - 1; i++)
+    {
+        int m = 0;
+        int n = i;
+        for (int j = 0; j < substr.size(); j++)
+        {
+            if (str[n] == substr[j])
+            {
+                m++;
+            }
+            n++;
+        }
+        if (m == substr.size())
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
 Grafo *seekLimitadoPorNivel(int tamanho, std::string subAddr)
 {
     int nodesPorNivel = 5;
 
     std::vector<std::string> titulos;
-    std::vector<std::vector<std::string>> links(tamanho);
+    std::vector<std::vector<WikiLink>> links(tamanho);
     std::vector<int> niveis;
     titulos.reserve(tamanho);
     links.reserve(tamanho);
@@ -108,7 +163,7 @@ Grafo *seekLimitadoPorNivel(int tamanho, std::string subAddr)
     niveis.push_back(0);
     for (int i = 0; i < titulos.size(); i++)
     {
-        std::cout << '('<<i+1<<'/'<<tamanho<<')'<<" adicionando: " << wikipediaEscape(titulos[i]) << std::endl;
+        std::cout << '(' << i + 1 << '/' << tamanho << ')' << " adicionando: " << wikipediaEscape(titulos[i]) << std::endl;
         std::string url = masterUrl + titulos[i];
         std::string readBuffer = obterSite(url);
 
@@ -117,8 +172,8 @@ Grafo *seekLimitadoPorNivel(int tamanho, std::string subAddr)
         {
             // inicio delimitado pelas classes "mw-content-ltr mw-parser-output"
             int inicio = readBuffer.find("<p>", readBuffer.find("mw-content-ltr mw-parser-output"));
-            // fim delimitado pelo id "catlinks"
-            int fim = readBuffer.find("catlinks", inicio);
+            // fim delimitado pela classe "reflist"
+            int fim = readBuffer.find("reflist", inicio);
 
             if (fim == -1 || inicio == -1)
             {
@@ -142,19 +197,30 @@ Grafo *seekLimitadoPorNivel(int tamanho, std::string subAddr)
                         inicio += 15;
                         fim = bloco.find("\"", inicio);
                         std::string addr = bloco.substr(inicio, fim - inicio);
-                        if(addr.find(':')==std::string::npos)
-                            links[i].push_back(addr);
+
+                        WikiLink l;
+                        l.titulo = addr;
+                        // verifica que nao contem ':' e se já foi adicionado no vetor
+                        if (addr.find(':') == std::string::npos && !l.existeTituloNoVetor(links[i]))
+                        {
+                            std::string escaped = wikipediaEscape(addr);
+                            l.qtd = contarReferencias(bloco, escaped);
+
+                            links[i].push_back(l);
+                        }
                     }
                 }
+                // ordena por qtd de referencias
+                std::sort(links[i].begin(), links[i].end(), WikiLink::comparar);
 
                 int index = 0;
                 int adicionadas = 0;
                 while (adicionadas < nodesPorNivel && index < links[i].size() && titulos.size() < tamanho)
                 {
                     // verifica se já foi adicionado no vetor
-                    if (std::find(titulos.begin(), titulos.end(), links[i][index]) == titulos.end())
+                    if (std::find(titulos.begin(), titulos.end(), links[i][index].titulo) == titulos.end())
                     {
-                        titulos.push_back(links[i][index]);
+                        titulos.push_back(links[i][index].titulo);
                         niveis.push_back(niveis[i] + 1);
                         adicionadas++;
                     }
@@ -167,12 +233,13 @@ Grafo *seekLimitadoPorNivel(int tamanho, std::string subAddr)
     Grafo *g = new Grafo(tamanho);
     for (int i = 0; i < titulos.size(); i++)
         g->InserirNode(titulos[i], niveis[i]);
-    for (int i = 0; i < titulos.size(); i++){
+    for (int i = 0; i < titulos.size(); i++)
+    {
         for (int j = 0; j < links[i].size(); j++)
         {
-            int index = g->ObterIndexNode(links[i][j]);
-            if(index != -1)
-                g->InserirOuSomarAresta(i,index, 1);
+            int index = g->ObterIndexNode(links[i][j].titulo);
+            if (index != -1)
+                g->InserirOuSomarAresta(i, index, links[i][j].qtd);
         }
     }
     return g;
@@ -223,8 +290,7 @@ void menu()
         }
         else if (inputUsuario == "b")
         {
-            g->ExportarParaTXT();
-            std::cout << "Exportado.\n";
+            std::cout << (g->ExportarParaTXT() ? "Exportado.\n" : "Grafo não pôde ser exportado\n");
         }
         else if (inputUsuario == "c")
         {
@@ -316,8 +382,7 @@ void menu()
         }
         else if (inputUsuario == "l")
         {
-            g->ExportarParaGraphML();
-            std::cout << "Grafo exportado para ser usado em https://graphonline.ru/en/\n";
+            std::cout << (g->ExportarParaGraphML() ? "Grafo exportado para ser usado em https://graphonline.ru/en/\n" : "Grafo não pôde ser exportado\n");
         }
         else
         {

@@ -66,15 +66,27 @@ public:
         {
             this->intensidade += intensidade;
         }
-        else{
+        else
+        {
             if (this->prox)
                 return prox->AdicionarOuSomar(id, intensidade);
             this->prox = new Aresta(id, intensidade);
-        } 
+        }
         return true;
     }
-    int Contar(){
-        return this->prox?this->prox->Contar()+1:1;
+    /*
+    Soma a quantidade de arestas nessa lista
+    */
+    int Contar()
+    {
+        return this->prox ? this->prox->Contar() + 1 : 1;
+    }
+    /*
+    Soma a intensidade de todas as arestas dessa lista
+    */
+    int Somar()
+    {
+        return this->intensidade + (this->prox ? this->prox->Somar() : 0);
     }
     /*
     Só precisa liberar o primeiro item da lista, porque cada um libera o proximo
@@ -124,6 +136,7 @@ private:
     std::vector<std::string> nomes;
     std::vector<int> profundidades;
     std::vector<Aresta *> arestas;
+
 public:
     /*Cria um grafo com espaço reservado*/
     Grafo(int capacidade)
@@ -188,9 +201,9 @@ public:
     {
         int sum = 0;
         for (int i = 0; i < arestas.size(); i++)
-            if(arestas[i])
+            if (arestas[i])
                 sum += arestas[i]->Contar();
-        
+
         return sum;
     }
     int ObterCapacidade()
@@ -336,11 +349,31 @@ public:
     Exporta o grafo para ser usado em https://graphonline.ru/en/ no arquvo 'destino'.
     Os nodes são organizados em uma circunferencia
     */
-    void ExportarParaGraphML(std::string destino)
+    bool ExportarParaGraphML(std::string destino)
     {
+        if(this->ContarNodes()==0)
+            return false;
+
         // configuracoes de aparencia
-        int nodeSize = 40;
         float centro[2] = {400, 200};
+        float maxNodeSize = 120.0;
+        float minNodeSize = 30.0;
+
+        //Distribui tamanho dos nodes de acordo com numero de arestas apontando para ele
+        std::vector<float> tamanhos;
+        tamanhos.reserve(this->ContarNodes());
+        for (int i = 0; i < this->ContarNodes(); i++)
+            tamanhos.push_back(arestas[i]?(float)arestas[i]->Somar():0.0);
+
+        float minConexoes = (float)*std::min_element(tamanhos.begin(), tamanhos.end());
+        float maxConexoes = (float)*std::max_element(tamanhos.begin(), tamanhos.end());
+
+        
+        for (int i = 0; i < this->ContarNodes(); i++){
+            float inverseLerp = (tamanhos[i] - minConexoes) / (maxConexoes - minConexoes);
+            float lerped = maxNodeSize * (inverseLerp) + minNodeSize * (1.0 - inverseLerp);
+            tamanhos[i] = lerped;
+        }
 
         // abre o arquivo
         std::fstream file(destino, std::fstream::out);
@@ -363,7 +396,7 @@ public:
 
             qtdFeitaPorNivel[this->profundidades[i]]++;
 
-            file << "<node positionX=\"" << centro[0] + cos(angulo) * radius << "\" positionY=\"" << centro[1] + sin(angulo) * radius << "\" id=\"" << i << "\" mainText=\"" << wikipediaEscape(this->nomes[i]) << "\" upText=\"\" size=\"" << nodeSize << "\"></node>";
+            file << "<node positionX=\"" << centro[0] + cos(angulo) * radius << "\" positionY=\"" << centro[1] + sin(angulo) * radius << "\" id=\"" << i << "\" mainText=\"" << wikipediaEscape(this->nomes[i]) << "\" upText=\"\" size=\"" << tamanhos[i] << "\"></node>";
         }
         // insere cada aresta
         for (int i = 0; i < this->ContarNodes(); i++)
@@ -381,18 +414,24 @@ public:
         file << "</graph></graphml>";
 
         file.close();
+
+        return true;
     }
 
     /*
     Exporta o grafo para ser usado em https://graphonline.ru/en/ com um nome padrão na pasta atual.
     */
-    void ExportarParaGraphML()
+    bool ExportarParaGraphML()
     {
-        ExportarParaGraphML(cwd() + "/export/export.graphml");
+        return ExportarParaGraphML(cwd() + "/export/export.graphml");
     }
 
-    void ExportarParaTXT(std::string destino)
+    bool ExportarParaTXT(std::string destino)
     {
+        if(this->ContarNodes()==0)
+            return false;
+
+
         // abre o arquivo
         std::fstream file(destino, std::fstream::out);
 
@@ -422,11 +461,13 @@ public:
         }
 
         file.close();
+
+        return true;
     }
 
-    void ExportarParaTXT()
+    bool ExportarParaTXT()
     {
-        ExportarParaTXT(cwd() + "/grafo.txt");
+        return ExportarParaTXT(cwd() + "/grafo.txt");
     }
     /*Libera a memoria*/
     ~Grafo()
