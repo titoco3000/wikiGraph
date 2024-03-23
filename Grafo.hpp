@@ -360,11 +360,24 @@ public:
         float minNodeSize = 30.0;
 
         //Distribui tamanho dos nodes de acordo com numero de arestas apontando para ele
-        std::vector<float> tamanhos;
-        tamanhos.reserve(this->ContarNodes());
-        for (int i = 0; i < this->ContarNodes(); i++)
-            tamanhos.push_back(arestas[i]?(float)arestas[i]->Somar():0.0);
-
+        
+        // //para somar quantos esse nó aponta
+        // std::vector<float> tamanhos;
+        // tamanhos.reserve(this->ContarNodes());
+        // for (int i = 0; i < this->ContarNodes(); i++)
+        //     tamanhos.push_back(arestas[i]?(float)arestas[i]->Somar():0.0);
+        
+        //para somar quantos apontam para cada nó
+        std::vector<float> tamanhos(this->ContarNodes());
+        for (int i = 0; i < this->ContarNodes(); i++){
+            Aresta *prox = arestas[i];
+            while (prox)
+            {
+                tamanhos[prox->id] += prox->intensidade;
+                prox = prox->prox;
+            }
+        }
+        
         float minConexoes = (float)*std::min_element(tamanhos.begin(), tamanhos.end());
         float maxConexoes = (float)*std::max_element(tamanhos.begin(), tamanhos.end());
 
