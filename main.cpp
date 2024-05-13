@@ -7,6 +7,9 @@
 #include "Grafo.hpp"
 #include "html.hpp"
 
+#define TAMANHO_LISTA_NEGRA 1
+const std::string listaNegra[TAMANHO_LISTA_NEGRA] = {"Wikiquote"};
+
 const std::string masterUrl = "https://pt.wikipedia.org/wiki/";
 
 void log(std::string msg)
@@ -200,8 +203,19 @@ Grafo *seekLimitadoPorNivel(int tamanho, std::string subAddr)
 
                         WikiLink l;
                         l.titulo = addr;
-                        // verifica que nao contem ':' e se já foi adicionado no vetor
-                        if (addr.find(':') == std::string::npos && !l.existeTituloNoVetor(links[i]))
+
+                        bool existeNaListaNegra = false;
+                        for (int i = 0; i<TAMANHO_LISTA_NEGRA ; i++)
+                        {
+                            if (listaNegra[i] == addr)
+                            {
+                                existeNaListaNegra = true;
+                                break;
+                            }
+                        }
+
+                        // verifica que nao contem ':', se não está na lista negra e se já foi adicionado no vetor
+                        if (addr.find(':') == std::string::npos && !existeNaListaNegra && !l.existeTituloNoVetor(links[i]))
                         {
                             std::string escaped = wikipediaEscape(addr);
                             l.qtd = contarReferencias(bloco, escaped);
@@ -272,6 +286,7 @@ void menu()
                   << "j) Encerrar a aplicação\n"
                   << "k) Carregar dados a partir da wikipedia\n"
                   << "l) Exportar para graphML\n"
+                  << "m) Colorir vértices\n"
                   << "\n>> ";
         std::cin >> inputUsuario;
 
@@ -383,6 +398,30 @@ void menu()
         else if (inputUsuario == "l")
         {
             std::cout << (g->ExportarParaGraphML() ? "Grafo exportado para ser usado em https://graphonline.ru/en/\n" : "Grafo não pôde ser exportado\n");
+        }
+        else if (inputUsuario == "m")
+        {
+            int grupos[g->ContarNodes()];
+            int maxGrupoOcupado = g->AgruparEmCores(grupos)-1;
+            std::cout << "Coloração dos vértices\n";
+            for (int i = 0; i <= maxGrupoOcupado; i++)
+            {
+                std::cout << "Grupo " << i + 1 << ": {";
+                bool primeiro = true;
+                for (int j = 0; j < g->ContarNodes(); j++)
+                {
+                    if (grupos[j] == i)
+                    {
+                        if (!primeiro)
+                            std::cout << ',';
+                        primeiro = false;
+                        std::cout << ' ' << j + 1;
+                    }
+                }
+                std::cout << " }\n";
+            }
+            std::cout
+            << "\nEste número pode não ser o número cromático mínimo, pois é calculado pelo algorítmo de coloração sequencial.\n";
         }
         else
         {

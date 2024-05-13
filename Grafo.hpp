@@ -177,7 +177,6 @@ public:
             int posPrimeiroEspaco = linha.find(" ");
             std::string nodeName = linha.substr(posPrimeiroEspaco + 1, posUltimoEspaco - posPrimeiroEspaco - 1);
             std::string profundidadeStr = linha.substr(posUltimoEspaco + 1);
-            std::cout << nodeName << " ==> " << profundidadeStr << std::endl;
 
             this->InserirNode(nodeName, std::stoi(profundidadeStr));
         }
@@ -351,7 +350,7 @@ public:
     */
     bool ExportarParaGraphML(std::string destino)
     {
-        if(this->ContarNodes()==0)
+        if (this->ContarNodes() == 0)
             return false;
 
         // configuracoes de aparencia
@@ -359,17 +358,18 @@ public:
         float maxNodeSize = 120.0;
         float minNodeSize = 30.0;
 
-        //Distribui tamanho dos nodes de acordo com numero de arestas apontando para ele
-        
+        // Distribui tamanho dos nodes de acordo com numero de arestas apontando para ele
+
         // //para somar quantos esse nó aponta
         // std::vector<float> tamanhos;
         // tamanhos.reserve(this->ContarNodes());
         // for (int i = 0; i < this->ContarNodes(); i++)
         //     tamanhos.push_back(arestas[i]?(float)arestas[i]->Somar():0.0);
-        
-        //para somar quantos apontam para cada nó
+
+        // para somar quantos apontam para cada nó
         std::vector<float> tamanhos(this->ContarNodes());
-        for (int i = 0; i < this->ContarNodes(); i++){
+        for (int i = 0; i < this->ContarNodes(); i++)
+        {
             Aresta *prox = arestas[i];
             while (prox)
             {
@@ -377,12 +377,12 @@ public:
                 prox = prox->prox;
             }
         }
-        
+
         float minConexoes = (float)*std::min_element(tamanhos.begin(), tamanhos.end());
         float maxConexoes = (float)*std::max_element(tamanhos.begin(), tamanhos.end());
 
-        
-        for (int i = 0; i < this->ContarNodes(); i++){
+        for (int i = 0; i < this->ContarNodes(); i++)
+        {
             float inverseLerp = (tamanhos[i] - minConexoes) / (maxConexoes - minConexoes);
             float lerped = maxNodeSize * (inverseLerp) + minNodeSize * (1.0 - inverseLerp);
             tamanhos[i] = lerped;
@@ -441,9 +441,8 @@ public:
 
     bool ExportarParaTXT(std::string destino)
     {
-        if(this->ContarNodes()==0)
+        if (this->ContarNodes() == 0)
             return false;
-
 
         // abre o arquivo
         std::fstream file(destino, std::fstream::out);
@@ -639,6 +638,38 @@ public:
         free(grupo);
 
         return c;
+    }
+
+    /*Recebe um vetor de tamanho N, popula ele com que grupo cada vértice entra e retorna o total de grupos.*/
+    int AgruparEmCores(int *grupos)
+    {
+        for (int i = 0; i < this->ContarNodes(); i++)
+            grupos[i] = -1;
+        int maxGrupoOcupado = 0;
+        // para cada vertice
+        for (int i = 0; i < this->ContarNodes(); i++)
+        {
+            // para cada grupo
+            for (int j = 0; j < this->ContarNodes(); j++)
+            {
+                bool conecta = false;
+                // verifica interseccao com vértices do grupo
+                for (Aresta *k = arestas[i]; k != nullptr; k = k->prox)
+                    if (grupos[k->id] == j)
+                    {
+                        conecta = true;
+                        break;
+                    }
+                    
+                if (!conecta)
+                {
+                    grupos[i] = j;
+                    maxGrupoOcupado = maxGrupoOcupado > j ? maxGrupoOcupado : j;
+                    break;
+                }
+            }
+        }
+        return maxGrupoOcupado+1;
     }
 
     /*Declara friends*/

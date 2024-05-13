@@ -5,3 +5,7 @@ Para compilar e executar:
     g++ main.cpp -lcurl -o build/wiki.exe && ./build/wiki.exe \<quantidade> \<página inicial>
 
 Sendo o valor padrão de quantidade = 30 e de página inicial = "Filosofia"
+
+
+Parte 2:
+Implementação coloração
