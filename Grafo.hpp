@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <cmath>
 #include "html.hpp"
+#include "Matriz.hpp"
 #include <unistd.h>
 #include <vector>
 
@@ -136,11 +137,13 @@ private:
     std::vector<std::string> nomes;
     std::vector<int> profundidades;
     std::vector<Aresta *> arestas;
+    Matriz *matrizRotas;
 
 public:
     /*Cria um grafo com espaço reservado*/
     Grafo(int capacidade)
     {
+        this->matrizRotas = nullptr;
         this->nomes.reserve(capacidade);
         this->profundidades.reserve(capacidade);
         this->arestas.reserve(capacidade);
@@ -149,6 +152,7 @@ public:
     /*Cria um grafo a partir de txt*/
     Grafo(std::string addr)
     {
+        this->matrizRotas = nullptr;
         std::string fullpath = cwd() + '/' + addr;
         std::ifstream inFile(fullpath);
 
@@ -487,6 +491,9 @@ public:
         for (int i = 0; i < ContarNodes(); i++)
             if (this->arestas[i])
                 delete this->arestas[i];
+
+        if (matrizRotas)
+            delete matrizRotas;
     }
 
     int CategoriaConexidade()
@@ -660,7 +667,7 @@ public:
                         conecta = true;
                         break;
                     }
-                    
+
                 if (!conecta)
                 {
                     grupos[i] = j;
@@ -669,7 +676,101 @@ public:
                 }
             }
         }
-        return maxGrupoOcupado+1;
+        return maxGrupoOcupado + 1;
+    }
+
+    /*Recebe um vetor de tamanho N, popula ele com o caminho e retorna o numero de nós nele.*/
+    int ObterCaminho(int *caminho, int origem, int destino)
+    {
+        // se não tem, calcula matriz de rotas
+        if (matrizRotas == nullptr)
+        {
+            std::cout << "Calculando rotas..." << std::endl;
+
+            // um numero muito grande para fazer as vezes de infinito. Se usar INT_MAX, na hora q for somar dá overflow e fica negativo
+            int inf = 100000;
+
+            int n = ContarNodes();
+            matrizRotas = new Matriz(n, n, -1);
+            Matriz *distancias = new Matriz(n, n, inf);
+
+            for (int i = 0; i < n; i++)
+            {
+                for (Aresta *item = arestas[i]; item != nullptr; item = item->prox)
+                {
+                    distancias->set(item->id, i, 1);
+                    matrizRotas->set(item->id, i, item->id);
+                }
+                distancias->set(i, i, 0);
+                matrizRotas->set(i, i, i);
+            }
+
+            for (int k = 0; k < n; k++)
+                for (int i = 0; i < n; i++)
+                    for (int j = 0; j < n; j++)
+                    {
+                        if (i != j && distancias->get(i, k) + distancias->get(k, j) < distancias->get(i, j))
+                        {
+                            distancias->set(i, j, distancias->get(i, k) + distancias->get(k, j));
+                            matrizRotas->set(i, j, matrizRotas->get(k, j));
+                        }
+                    }
+
+            delete distancias;
+        }
+
+        int atual = origem;
+        int qtd = 0;
+        do
+        {
+            if (atual == -1)
+            {
+                qtd = 0;
+                break;
+            }
+            caminho[qtd++] = atual;
+            atual = matrizRotas->get(destino, atual);
+        } while (atual != destino);
+
+        if (atual == destino)
+            caminho[qtd++] = atual;
+
+        return qtd;
+    }
+
+    bool ExisteCaminhoEuleriano()
+    {
+        int qtde = 0, grau, i = 0, nroVertices = ContarNodes();
+        while ((qtde <= 2) && (i < nroVertices))
+        {
+            grau = 0;
+            for (Aresta *item = arestas[i]; item != nullptr; item = item->prox)
+                grau++;
+           
+            if ((grau % 2) == 1)
+                qtde++;
+            i++;
+        }
+        if (qtde > 2)
+            return false;
+        else
+            return true;
+    }
+
+    void ReduzirParaArvoreDeConexaoMinima(){
+        for (int i = 0; i < this->ContarNodes(); i++){
+            if(arestas[i]){
+                Aresta *arestaMinima = arestas[i];
+                for (Aresta *item = arestaMinima->prox; item != nullptr; item = item->prox){
+                    if(item->intensidade < arestaMinima->intensidade){
+                        RemoverAresta(i, arestaMinima->id);
+                        arestaMinima = item;
+                    }else
+                        RemoverAresta(i, item->id);
+                }
+            }
+        }
+        
     }
 
     /*Declara friends*/

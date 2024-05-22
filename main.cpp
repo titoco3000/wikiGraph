@@ -205,7 +205,7 @@ Grafo *seekLimitadoPorNivel(int tamanho, std::string subAddr)
                         l.titulo = addr;
 
                         bool existeNaListaNegra = false;
-                        for (int i = 0; i<TAMANHO_LISTA_NEGRA ; i++)
+                        for (int i = 0; i < TAMANHO_LISTA_NEGRA; i++)
                         {
                             if (listaNegra[i] == addr)
                             {
@@ -287,6 +287,9 @@ void menu()
                   << "k) Carregar dados a partir da wikipedia\n"
                   << "l) Exportar para graphML\n"
                   << "m) Colorir vértices\n"
+                  << "n) Obter rota\n"
+                  << "o) Verificação caminho euleriano\n"
+                //   << "p) Transformar em arvore de conexão mínima\n"
                   << "\n>> ";
         std::cin >> inputUsuario;
 
@@ -402,7 +405,7 @@ void menu()
         else if (inputUsuario == "m")
         {
             int grupos[g->ContarNodes()];
-            int maxGrupoOcupado = g->AgruparEmCores(grupos)-1;
+            int maxGrupoOcupado = g->AgruparEmCores(grupos) - 1;
             std::cout << "Coloração dos vértices\n";
             for (int i = 0; i <= maxGrupoOcupado; i++)
             {
@@ -421,7 +424,39 @@ void menu()
                 std::cout << " }\n";
             }
             std::cout
-            << "\nEste número pode não ser o número cromático mínimo, pois é calculado pelo algorítmo de coloração sequencial.\n";
+                << "\nEste número pode não ser o número cromático mínimo, pois é calculado pelo algorítmo de coloração sequencial.\n";
+        }
+        else if (inputUsuario == "n")
+        {
+            int origemIndex, destinoIndex;
+            std::cout << "Índice vértice de origem: ";
+            std::cin >> origemIndex;
+            std::cout << "Índice vértice de destino: ";
+            std::cin >> destinoIndex;
+
+            if (origemIndex < g->ContarNodes())
+            {
+                if (destinoIndex < g->ContarNodes())
+                {
+                    int caminho[g->ContarNodes()];
+                    int passos = g->ObterCaminho(caminho, origemIndex, destinoIndex);
+                    std::cout << "\nCaminho: " << std::endl;
+                    for (int i = 0; i < passos; i++)
+                        std::cout << "    " << g->ObterNode(caminho[i]) << std::endl;
+                    std::cout << std::endl;
+                }
+                else
+                    std::cout << "destino inválido" << std::endl;
+            }
+            else
+                std::cout << "origem inválida" << std::endl;
+        }
+        else if(inputUsuario == "o"){
+            std::cout<<(g->ExisteCaminhoEuleriano()?"E":"Não e")<<"xiste caminho euleriano neste grafo.\n"<<std::endl;
+        }
+        else if(inputUsuario == "p"){
+            g->ReduzirParaArvoreDeConexaoMinima();
+            std::cout<<"Reduzido\n";
         }
         else
         {
@@ -432,35 +467,6 @@ void menu()
 
 int main(int argc, char *argv[])
 {
-    // seekLimitadoPorNivel(10, "Filosofia");
     menu();
-
-    // std::string root = "Filosofia";
-    // int qtd = 3;
-
-    // // entende os argumentos opcionais para quantidade e página inicial
-    // for (int i = 1; i < argc; i++)
-    // {
-    //     try
-    //     {
-    //         int x = std::stoi(argv[i]);
-    //         qtd = x;
-    //     }
-    //     catch (...)
-    //     {
-    //         root = argv[i];
-    //     }
-    // }
-
-    // Grafo *g = new Grafo(qtd);
-
-    // seek(g, root);
-
-    // std::cout << "g:\n"
-    //           << g << std::endl;
-
-    // g->ExportarParaGraphML();
-
-    // delete g;
     return 0;
 }
